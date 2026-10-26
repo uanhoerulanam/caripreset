@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ankraixmotion - Preset Finder</title>
+    <style>
+        body { background-color: #0f0f0f; color: #fff; font-family: 'Segoe UI', sans-serif; padding: 20px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; }
+        .container { max-width: 450px; width: 100%; background: #1a1a1a; padding: 25px; border-radius: 10px; border: 1px solid #333; margin-top: 20px; }
+        h2 { margin-top: 0; color: #4ade80; font-size: 22px; text-align: center; }
+        .subtitle { color: #888; font-size: 13px; margin-bottom: 20px; text-align: center; }
+        label { font-size: 14px; color: #ccc; display: block; margin-bottom: 8px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; background: #222; border: 1px solid #444; color: white; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
+        button { width: 100%; padding: 12px; background: #4ade80; color: #000; border: none; font-weight: bold; font-size: 15px; border-radius: 5px; cursor: pointer; transition: 0.2s; margin-bottom: 20px; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        .loading { text-align: center; color: #fbbf24; display: none; font-size: 14px; margin-bottom: 20px; }
+        .result-box { background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; margin-bottom: 15px; display: none; }
+        .video-info { font-size: 13px; color: #aaa; margin-bottom: 10px; border-bottom: 1px dashed #444; padding-bottom: 10px; }
+        .preset-item { margin-bottom: 15px; padding: 10px; background: #111; border-radius: 5px; border-left: 3px solid #4ade80; }
+        .preset-title { font-weight: bold; color: #fff; font-size: 14px; margin-bottom: 5px; }
+        .preset-detail { font-size: 12px; color: #888; margin-bottom: 10px; }
+        .download-btn { display: inline-block; padding: 8px 12px; background: #10b981; color: #fff; text-decoration: none; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .error-msg { color: #fca5a5; background: #7f1d1d; padding: 10px; border-radius: 5px; font-size: 13px; display: none; border: 1px solid #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Ankraixmotion Spider 🕷️</h2>
+        <div class="subtitle">Pencari Link Preset Alight Motion dari TikTok</div>
+        
+        <label>Tempel Link Video TikTok</label>
+        <input type="text" id="tiktokUrl" placeholder="https://vt.tiktok.com/..." required>
+        <button onclick="cariPreset()" id="btnCari">Cari Preset 🔎</button>
+
+        <div id="loading" class="loading">⏳ Sedang memindai video dan komentar...</div>
+        <div id="errorBox" class="error-msg"></div>
+
+        <div id="hasil" class="result-box">
+            <div id="infoVideo" class="video-info"></div>
+            <div id="daftarPreset"></div>
+        </div>
+    </div>
+
+    <script>
+        async function cariPreset() {
+            const url = document.getElementById('tiktokUrl').value;
+            const btn = document.getElementById('btnCari');
+            const loading = document.getElementById('loading');
+            const hasil = document.getElementById('hasil');
+            const errorBox = document.getElementById('errorBox');
+            const infoVideo = document.getElementById('infoVideo');
+            const daftarPreset = document.getElementById('daftarPreset');
+            
+            if(!url) { alert('Masukkan link TikTok terlebih dahulu!'); return; }
+
+            btn.disabled = true; btn.innerText = 'Mencari...';
+            loading.style.display = 'block'; hasil.style.display = 'none';
+            errorBox.style.display = 'none'; daftarPreset.innerHTML = '';
+            infoVideo.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/find', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Terjadi kesalahan pada server');
+
+                infoVideo.innerHTML = `
+                    <b>Author:</b> ${data.author || 'Tidak diketahui'}<br>
+                    <b>Views:</b> ${data.video?.stats?.views || '0'}<br>
+                    <b>Deskripsi:</b> ${(data.video?.description || '').substring(0, 50)}...
+                `;
+
+                const presets = data.presetLinks || [];
+                if (presets.length === 0) {
+                    daftarPreset.innerHTML = '<div style="color:#fbbf24; font-size:13px; text-align:center;">Tidak ada link preset yang ditemukan di video ini.</div>';
+                } else {
+                    presets.forEach((p, i) => {
+                        daftarPreset.innerHTML += `
+                            <div class="preset-item">
+                                <div class="preset-title">📌 ${p.title || 'Preset ' + (i+1)}</div>
+                                <div class="preset-detail">Tipe: ${p.type || '-'} | Size: ${p.size || '-'}</div>
+                                <a href="${p.url}" target="_blank" class="download-btn">Download Preset</a>
+                            </div>
+                        `;
+                    });
+                }
+                hasil.style.display = 'block';
+
+            } catch (error) {
+                errorBox.innerText = '❌ ' + error.message;
+                errorBox.style.display = 'block';
+            } finally {
+                btn.disabled = false; btn.innerText = 'Cari Preset 🔎';
+                loading.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
