@@ -1,3 +1,5 @@
+import { fetch as wreqFetch } from 'wreq-js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -11,15 +13,18 @@ export default async function handler(req, res) {
   try {
     const apiUrl = `https://amfinder.web.id/api/find?url=${encodeURIComponent(url)}`;
     
+    // Vercel gratis maksimal 10 detik, kita set timeout 9 detik
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 9000);
 
-    const response = await fetch(apiUrl, {
+    // Menggunakan wreqFetch untuk menembus Cloudflare 403
+    const response = await wreqFetch(apiUrl, {
       method: 'GET',
       headers: {
         'Accept': 'text/event-stream',
-        'User-Agent': 'Mozilla/5.0 (compatible; AMFinderWeb/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       },
+      browser: 'chrome_124', // Memalsukan sidik jari Chrome
       signal: controller.signal,
     });
 
@@ -46,7 +51,10 @@ export default async function handler(req, res) {
         } else if (line.startsWith('data:')) {
           const data = line.slice(5).trim();
           if (currentEvent === 'result') {
-            try { return res.status(200).json(JSON.parse(data)); } catch (e) {}
+            try { 
+              clearTimeout(timeout);
+              return res.status(200).json(JSON.parse(data)); 
+            } catch (e) {}
           }
           if (currentEvent === 'error') {
             try { 
@@ -62,8 +70,8 @@ export default async function handler(req, res) {
     throw new Error('Koneksi terputus sebelum selesai');
   } catch (error) {
     if (error.name === 'AbortError') {
-      return res.status(504).json({ error: 'Waktu habis (Timeout). Server AMFinder terlalu lama merespon.' });
+      return res.status(504).json({ error: 'Waktu habis (Timeout). Server AMFinder terlalu lama merespon atau videonya terlalu panjang.' });
     }
     return res.status(500).json({ error: error.message });
   }
-}
+              }
